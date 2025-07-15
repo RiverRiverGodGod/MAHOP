@@ -1,16 +1,31 @@
-# Third week: improve finetune and RL (GRPO) 
+# Forth week: using VLLM and Qwen-7B to improve the GRPO efficiency and exploring the first main setting
 
 ## API choice
 
-- **Backbone**: Qwen3-1.7B
+- **Backbone**: Qwen3-1.7B, Qwen2.5-7B， gemini-2.5-flash-lite-preview
 - **Finetune Structure**: LLaMA Factory, Lora
 - **RL Structure**: open-r1, GRPO
 
-## Sample regeneration:
+## Using VLLM and Qwen2.5-7B to improve the efficiency:
 
-**Test sample:** Previously, samples numbered 10001–11000 from the "researchy questions" set were used as the test set. It was found that the performance of the original model on this subset differed noticeably from its performance on the full set. Therefore, we replaced the test set with samples numbered 11000–13000 and conducted the evaluation again.
+### Experiemnt settings:
 
-**Filtering sample:** When filtering the samples, all requirements related to subjective metrics were completely removed. Only objective metrics and keypoint match were considered, resulting in approximately 3,000 samples in the final dataset.
+**1.** "Without VLLM" means that neither the reward model nor the policy model uses VLLM to accelerate the inference process. Under this setting, both the normal and multi-threading methods utilize the Gemini model as the reward model, except that the multi-threading approach sends API requests to Gemini in parallel using multiple threads. If the Qwen7B model is used as the reward model, running inference with just one GPU causes out-of-memory (OOM) errors. Therefore, one GPU is dedicated to running Qwen7B inference, and another GPU is used for the policy model.
+
+**2.** "With VLLM" means that both the reward model (if using Qwen) and the policy model use VLLM to accelerate the inference process. If VLLM and the policy model run on the same GPU using --vllm_mode colocate, it also causes out-of-memory (OOM) errors. Therefore, a dedicated GPU is required to serve as the Server for running VLLM inference. If using the multi-threading Gemini model as the reward model, only one additional GPU is needed as the client to run the policy model. However, if the Qwen7B model is used as the reward model, in addition to the GPUs required for the Server and client, another GPU is needed as a separate RAG inference Server to run VLLM inference.
+
+**3.** "Contrast" refers to a comparative setting. In the first setting, VLLM is only utilized during the policy inference stage. When using the Qwen7B model for RAG, an additional dedicated GPU is used to avoid out-of-memory (OOM) errors; however, VLLM is not deployed as a server in this case but rather as a client. Consequently, the client side consumes two GPUs, while the server side consumes one GPU. The second setting serves as a baseline, measuring the time taken to purely train the policy model with VLLM (since the reward function is simply the negative length and thus consumes virtually no time).
+
+### Efficiency test Results:
+
+
+### Analysis:
+
+**1.** Overall, the two most efficient settings are using VLLM-accelerated inference with Gemini and Qwen7B, each of which has its own advantages and disadvantages. For Gemini, it provides higher efficiency but requires API usage, and due to API rate limits per unit time, at most two experiments with different configurations can be run simultaneously. In contrast, Qwen7B offers relatively lower efficiency, but considering experiments run on preempt partitions (with each user allocated 24 GPUs), up to eight experiments with different configurations can be run simultaneously, making it relatively more efficient when high concurrency in experiment configuration tuning is required. 
+
+**2.** Through comparative experiments, I found that using VLLM significantly improves efficiency on both the RAG and policy sides. Furthermore, compared to the baseline, using Gemini's API calls does not impose a substantial efficiency burden on the entire experiment—only adding slightly less than double the time cost compared to the simplest reward function.
+
+
 
 ## Prompt reformulation (For finetune and RL)
 
