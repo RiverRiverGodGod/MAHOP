@@ -27,53 +27,41 @@
 
 
 
-## Prompt reformulation (For finetune and RL)
+## Control rag to generate the specific key point
 
-### For finetune:
+### Design ideas:
 
-During the finetuning phase, I found that even when using specific prompts for each task, the model consistently failed to match the performance of the original version. I therefore hypothesized that the Qwen 1.7B model might be too small to handle overly complex prompts. As a result, I simplified all the prompts. Below is an example of a simplified prompt for one of the regeneration methods.
+**1.** Considering our previous discussions, we concluded that GEO's monetization strategy focuses on having RAG generate content favorable to one’s own webpage, regardless of whether the favorable generated content explicitly cites one’s own webpage. Therefore, when evaluating whether RAG-generated outputs include specific selected key points, we examine the entire generated result rather than only those results explicitly citing one’s own webpage.
 
-**Before Reformulation:**
-Here is the source that you need to update:
+**2.** First, test the original webpage content, as well as the webpage content regenerated using various previous methods. For each sample, randomly select one key point from several key points of the webpage and determine the probability of its appearance in the final RAG-generated results. Next, design a prompt aimed at "increasing the probability of generating a specific key point" (as shown below), and evaluate the generation probability of the specified key point after regenerating the original webpage content using this prompt. Based on the increase in the probability of generating the specified key points, roughly assess whether further improvement through subsequent RL is feasible.
+
+### Method prompt:
+
+"""
+##Task:
+Below is a key point extracted from the original text:
 ```
-{summary}
+{key_point}
 ```
-Task:
-Add NEW keywords in the source that optimize the content in accordance with SEO principles. Note you cannot use the keywords already present in the source. You have to only include the new keywords.
+Your task is to rewrite the original text, without changing its meaning or core content, in a way that emphasizes the importance of this key point. The goal is to ensure that, when RAG uses this text as one of its reference sources, the key point is prominently mentioned or highlighted.
+##Guidelines to follow:
+1. You can emphasize the key point in the text to make it stand out more prominently. This can be achieved by inserting emphasis words and phrases, or using formatting techniques such as bolding, italicizing, or underlining key phrases, or by restructuring sentences to highlight important information.
+2. You can also expand relevant sections of the original text related to the key point to provide more context or detail to highlight the significance of the key point.
+3. You can also use any rewriting strategy, as long as the revised text makes the key point more prominent and important.
+4. Do not update any part of the text except for emphasizing the key point.
+5. Do not add or delete any content except where necessary to highlight the key point.
+6. Just output the optimized source text. Do not provide any explanation, reasoning, or conclusion.
+""".format(key_point = key_point)
 
-Guidelines to follow:
-1. Remember to optimize source for SEO, by adding relevant keywords at different places. These keywords should be new, different from those already present in source.
-2. First identify the keywords that can be added. Eg: "In sentence about zzz, add keyword xxx". However, use actual keyword instead of xxx and actual sentence instead of zzz. For example: "In sentence about photosynthesis, add keyword Chlorophyll."
-3. Maximum new keywords should be 10. Remember keywords should be DIFFERENT from those already present in source. 
-4. Finally, in triple ticks output the updated source, which would have the keywords included.
+### Contrastive result and analysis:
 
-Output Format: 
-1. In sentence about keyword zzz, add keyword xxx
-2. In sentence about keyword zzz, add keyword xxx
-....
-k. In sentence about keyword zzz, add keyword xxx
 
-Now I will output the updated text:
-Updated Output:
-```
-<Output>
-```
+### Analysis:
 
-**After Reformulation:**
-Task:
-Add NEW keywords in the source that optimize the content in accordance with SEO principles. Note you cannot use the keywords already present in the source. You have to only include the new keywords.
-Guidelines to follow:
-1. Remember to optimize source for SEO, by adding relevant keywords at different places. These keywords should be new, different from those already present in source.
-2. First identify the keywords that can be added. Eg: "In sentence about zzz, add keyword xxx". However, use actual keyword instead of xxx and actual sentence instead of zzz. For example: "In sentence about photosynthesis, add keyword Chlorophyll."
-3. Maximum new keywords should be 10. Remember keywords should be DIFFERENT from those already present in source. 
-4. Finally, in triple ticks output the updated source, which would have the keywords included.
-Directly return the rewritten content.
+**1.** Using the various webpage regeneration methods tested previously, it was indeed possible to improve the probability of RAG-generated answers containing key points from the webpage to a certain extent. However, because these prompts were not tailored to specific key points, the improvement was limited, increasing the probability only from 0.609 to 0.632.
 
-### For RL:
+**2.** By employing the new prompt designed specifically to "increase the probability of generating designated key points," and using Gemini as the RAG model, the probability of RAG-generated answers including the specified webpage key points significantly increased from 0.609 to 0.891. Given the substantial magnitude of this improvement and the resulting near 90% probability, I'm concerned about whether subsequent reinforcement learning (RL) can further enhance these results.
 
-For the RL phase, since there is no labeled supervision, an additional system prompt is needed to help the model understand the task requirements and the source content. Therefore, the following system prompt was added.
-
-System prompt: You will be given one 'source text' and one 'task description' about how you should do to rewritten that 'source text'. *Please directly return the rewritten content. In addition to including your reasoning within the <think> and </think> tags, make sure that your 'rewritten content' in the formal answer is approximately the same length as the 'source text'.*
 
 ## Other improvement for finetune and RL:
 
