@@ -1,4 +1,4 @@
-# Forth week: using VLLM and Qwen-7B to improve the GRPO efficiency and exploring the first main setting
+# Fifth week: breakthrough -- significant improvement through general prompt and rule augment
 
 ## API choice
 
@@ -6,7 +6,18 @@
 - **Finetune Structure**: LLaMA Factory, Lora
 - **RL Structure**: open-r1, GRPO
 
+## General Abstrct:
+
+**1.** I completed a task left over from last week. Experimental results showed that although the Qwen2.5-7B model is smaller in size and performs worse than Gemini, simply using it as the generative LLM on the RAG side to replace Gemini—without directly involving it in the reward feedback—does not have a significant impact on the final reinforcement learning (RL) performance.
+
+**2.** I worked on improving the effectiveness of the RL stage. One setting mirrors the fine-tuning stage, using only the filtered samples for RL. The other setting uses a general prompt. Unlike previous versions, in addition to instructing the model to regenerate webpage content, each regeneration method is summarized into a single sentence. The prompt then tells the model it can choose one or several methods—or even other approaches—to enhance the visibility of the regenerated content. This second setting led to a notable performance improvement, with the average objective metric exceeding 0.24, surpassing the previous average achieved by Gemini (around 0.22–0.23).
+
+**3.** I rewrote the functions related to AutoRule to better support the extraction of “RAG-side generation preferences toward different documents.” Using the revised AutoRule, I generated rule sets for both Gemini and Qwen7B under the first setting (i.e., the best and worst documents among five candidates). I also tested using Gemini to regenerate the original webpage content with the generated rule set incorporated into the prompt. The results showed that the objective evaluation score jumped to 0.33, surpassing the previous best regeneration method of 0.26.
+
+**4.** Motivated by the results from **2.** and **3.**, I began to suspect that the observed RL improvement may not come solely from the RL process itself, but also from the general regeneration prompt—which includes one-sentence summaries of all regeneration methods—playing a significant role. On the other hand, the impressive improvement achieved by rule-based regeneration might be due to the richness of the rule set, which provides multiple guiding rules for the model to follow. To validate this, I conducted two additional experiments using Gemini: one using the same general regeneration prompt as in the RL setting, and another combining both the general regeneration prompt and the rule set. The results showed that the objective metric score soared to 0.38 and 0.41, respectively.
+
 ## Using VLLM and Qwen2.5-7B to improve the efficiency:
+
 
 ### Experiemnt settings:
 
