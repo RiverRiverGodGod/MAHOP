@@ -1,4 +1,4 @@
-# Fifth week: breakthrough -- significant improvement through general prompt and rule augment
+# Sixth week: RAG-effect, keypoint match and bertscore, new finetune and RL
 
 ## API choice
 
@@ -8,24 +8,116 @@
 
 ## General Abstrct:
 
-**1.** I completed a task left over from last week. Experimental results showed that although the Qwen2.5-7B model is smaller in size and performs worse than Gemini, simply using it as the generative LLM on the RAG side to replace Gemini—without directly involving it in the reward feedback—does not have a significant impact on the final reinforcement learning (RL) performance.
+**1.** Assess the RAG effect of all configurations using standard metrics (Faithfulness, Relevance, Conciseness & Coherence) and a novel Completeness metric designed for the Researchy Question dataset.
 
-**2.** I worked on improving the effectiveness of the RL stage. One setting mirrors the fine-tuning stage, using only the filtered samples for RL. The other setting uses a general prompt. Unlike previous versions, in addition to instructing the model to regenerate webpage content, each regeneration method is summarized into a single sentence. The prompt then tells the model it can choose one or several methods—or even other approaches—to enhance the visibility of the regenerated content. This second setting led to a notable performance improvement, with the average objective metric exceeding 0.24, surpassing the previous average achieved by Gemini (around 0.22–0.23).
+**2.** Use Keypoint Coverage and BERTScore to assess the semantic similarity between the original source documents and the regenerated documents across all model configurations.
 
-**3.** I rewrote the functions related to AutoRule to better support the extraction of “RAG-side generation preferences toward different documents.” Using the revised AutoRule, I generated rule sets for both Gemini and Qwen7B under the first setting (i.e., the best and worst documents among five candidates). I also tested using Gemini to regenerate the original webpage content with the generated rule set incorporated into the prompt. The results showed that the objective evaluation score jumped to 0.33, surpassing the previous best regeneration method of 0.26.
+**3.** Visualize the metric differences between the highest and lowest-visibility documents per query, along with the change in target document rankings after rewriting.
 
-**4.** Motivated by the results from **2.** and **3.**, I began to suspect that the observed RL improvement may not come solely from the RL process itself, but also from the general regeneration prompt—which includes one-sentence summaries of all regeneration methods—playing a significant role. On the other hand, the impressive improvement achieved by rule-based regeneration might be due to the richness of the rule set, which provides multiple guiding rules for the model to follow. To validate this, I conducted two additional experiments using Gemini: one using the same general regeneration prompt as in the RL setting, and another combining both the general regeneration prompt and the rule set. The results showed that the objective metric score soared to 0.38 and 0.41, respectively.
+**4.** Re-ran the fine-tuning process with a Gemini teacher configured by new auto-rules and instructions. Logged the results from this new fine-tuning and the subsequent RL initiated from this more advanced checkpoint.
 
-## Using VLLM and Qwen2.5-7B to improve the efficiency:
+## RAG Evaluation:
 
+### Three widely-recognized metrics for RAG:
 
-### Experiemnt settings:
+The evaluation of our RAG system is based on three widely-recognized metrics: Faithfulness, which gauges whether the generated response is grounded in the provided source documents; Relevance, which measures the answer's alignment with the user's query; Conciseness & Coherence, which assesses the internal clarity and logical structure of the response. (The Correctness metric is omitted, as the subjective, open-ended nature of our query dataset means there are no standard or "correct" answers for comparison).
 
-**1.** "Without VLLM" means that neither the reward model nor the policy model uses VLLM to accelerate the inference process. Under this setting, both the normal and multi-threading methods utilize the Gemini model as the reward model, except that the multi-threading approach sends API requests to Gemini in parallel using multiple threads. If the Qwen7B model is used as the reward model, running inference with just one GPU causes out-of-memory (OOM) errors. Therefore, one GPU is dedicated to running Qwen7B inference, and another GPU is used for the policy model.
+### One novel metric designed for Researchy Question dataset:
 
-**2.** "With VLLM" means that both the reward model (if using Qwen) and the policy model use VLLM to accelerate the inference process. If VLLM and the policy model run on the same GPU using --vllm_mode colocate, it also causes out-of-memory (OOM) errors. Therefore, a dedicated GPU is required to serve as the Server for running VLLM inference. If using the multi-threading Gemini model as the reward model, only one additional GPU is needed as the client to run the policy model. However, if the Qwen7B model is used as the reward model, in addition to the GPUs required for the Server and client, another GPU is needed as a separate RAG inference Server to run VLLM inference.
+To address the subjectivity of the Reseachy Questions dataset, we propose a new metric called Completeness. This metric is designed to measure how thoroughly the RAG response covers the various dimensions of a query. We are able to implement this because the dataset uniquely provides predefined sub-questions and aspects, which essentially serve as a blueprint for a comprehensive answer.
 
-**3.** "Contrast" refers to a comparative setting. In the first setting, VLLM is only utilized during the policy inference stage. When using the Qwen7B model for RAG, an additional dedicated GPU is used to avoid out-of-memory (OOM) errors; however, VLLM is not deployed as a server in this case but rather as a client. Consequently, the client side consumes two GPUs, while the server side consumes one GPU. The second setting serves as a baseline, measuring the time taken to purely train the policy model with VLLM (since the reward function is simply the negative length and thus consumes virtually no time).
+### Prompts for all RAG evaluation metrics:
+
+**Faithfulness:**
+
+```text
+"""You are a meticulous fact-checker. Your task is to evaluate if a "Statement" is fully and accurately supported by the "Source Text". Answer on a scale of 1 to 5. Your response MUST begin with a single digit from 1 to 5, followed by a newline and a brief explanation.
+
+- 5: The statement is fully and directly supported by the source text. All claims in the statement can be clearly verified from the source.
+- 4: The statement is mostly supported, but might involve a minor, reasonable inference.
+- 3: The statement is partially supported, but contains significant information not present in the source.
+- 2: The statement is related to the source text's topic but the core claim is not supported.
+- 1: The statement is completely unsupported by or contradicts the source text.
+
+Source Text:
+"""
+{source_document_content}
+"""
+
+Statement:
+"""
+{generated_sentence}
+"""
+
+Your Rating (1-5):"""
+```
+
+**Relevance:**
+
+```text
+"""You are an expert question-answering evaluator. Your task is to rate how relevant the "Generated Answer" is to the "User Query". Answer on a scale of 1 to 5. Your response MUST begin with a single digit from 1 to 5, followed by a newline and a brief explanation.
+
+- 5: The answer is perfectly relevant, directly and completely answering the user's query.
+- 4: The answer is highly relevant but may contain minor, slightly off-topic information.
+- 3: The answer is moderately relevant, addressing the main topic but failing to answer the specific question asked.
+- 2: The answer is only slightly relevant, focusing on a tangent of the query.
+- 1: The answer is completely irrelevant to the query.
+
+User Query:
+\"\"\"
+{user_query}
+\"\"\"
+
+Generated Answer:
+\"\"\"
+{generated_answer}
+\"\"\"
+
+Your Rating (1-5):"""
+```
+
+**Conciseness & Coherence:**
+
+```text
+"""You are a writing quality editor. Your task is to evaluate the "Text to Evaluate" based on its combined Conciseness and Coherence. Answer on a scale of 1 to 5. Your response MUST begin with a single digit from 1 to 5, followed by a newline and a brief explanation.
+
+- 5: Excellent. The text is concise, well-structured, logical, and flows smoothly. No redundancy.
+- 4: Good. The text is mostly clear and well-written, with only very minor redundancy or awkward phrasing.
+- 3: Average. The text is understandable but could be better structured or more concise. Contains some repetitive information.
+- 2: Poor. The text is difficult to follow, with significant logical gaps or redundant sentences.
+- 1: Very Poor. The text is incoherent, confusing, and highly repetitive.
+
+Text to Evaluate:
+\"\"\"
+{generated_answer}
+\"\"\"
+
+Your Rating (1-5):"""
+```
+
+**Completeness:**
+
+```text
+"""You are an expert evaluator. Your task is to assess how well the "Main Answer" holistically covers the key "Aspects to Cover" provided in a list. Consider if the main ideas of the aspects are present and adequately explained. Answer on a scale of 1 to 5. Your response MUST begin with a single digit from 1 to 5, followed by a newline and a brief explanation.
+
+- 5: Excellent coverage. The answer comprehensively discusses all or nearly all of the listed aspects.
+- 4: Good coverage. The answer discusses most of the key aspects well, but some might be superficial or minor ones are missed.
+- 3: Moderate coverage. The answer discusses some of the aspects, but misses several major ones or treats them too briefly.
+- 2: Poor coverage. The answer only vaguely alludes to one or two aspects but fails to provide substantive information.
+- 1: No coverage. The answer almost completely ignores the provided list of aspects.
+
+Aspects to Cover:
+\"\"\"
+{aspects_list_str}
+\"\"\"
+
+Main Answer:
+\"\"\"
+{main_answer}
+\"\"\"
+
+Your Rating (1-5):"""
+```
 
 ### Efficiency test Results:
 
