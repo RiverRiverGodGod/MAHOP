@@ -1,4 +1,4 @@
-# Sixth week: RAG-effect, keypoint match and bertscore, new finetune and RL
+# Seventh week: keypoint metrics rewritten & add GEO-Bench dataset & use autorule for GPT, qwen and Claude & add keypoint threshold to finetune and RL.
 
 ## API choice
 
@@ -8,19 +8,110 @@
 
 ## General Abstrct:
 
-**1.** Assess the RAG effect of all configurations using standard metrics (Faithfulness, Relevance, Conciseness & Coherence) and a novel Completeness metric designed for the Researchy Question dataset.
+**1.** Refactored the keypoint-related components (currently still using GPT-4o-mini) to enable batch evaluation of keypoint coverage, improving the accuracy of the new keypoint function. This also ensures it can be efficiently used as a threshold during the RL phase without incurring excessive time or cost.
 
-**2.** Use Keypoint Coverage and BERTScore to assess the semantic similarity between the original source documents and the regenerated documents across all model configurations.
+**2.** Finalized two datasets: in addition to the existing research-oriented questions, the GEO-Bench dataset (a composite of nine datasets from the GEO paper) was added. Experiments involving AutoRule, Gemini prompt augmentation, and keypoint coverage have been completed on GEO-Bench. Currently, neither dataset includes ground truth labels, but a new dataset with ground truth is planned.
 
-**3.** Visualize the metric differences between the highest and lowest-visibility documents per query, along with the change in target document rankings after rewriting.
+**3.** Applied AutoRule to analyze the preference patterns of GPT, Gemini, Claude, and Qwen across different rule types.
 
-**4.** Re-ran the fine-tuning process with a Gemini teacher configured by new auto-rules and instructions. Logged the results from this new fine-tuning and the subsequent RL initiated from this more advanced checkpoint.
+**4.** Conducted fine-tuning and RL experiments with an increased keypoint_coverage threshold, and obtained preliminary results.
 
-## RAG Evaluation:
+## Keypoint Rewritten:
 
-### Three widely-recognized metrics for RAG:
+### General ideas:
 
-The evaluation of our RAG system is based on three widely-recognized metrics: Faithfulness, which gauges whether the generated response is grounded in the provided source documents; Relevance, which measures the answer's alignment with the user's query; Conciseness & Coherence, which assesses the internal clarity and logical structure of the response. (The Correctness metric is omitted, as the subjective, open-ended nature of our query dataset means there are no standard or "correct" answers for comparison).
+We no longer evaluate keypoints individually. Instead, we provide all keypoints from the original document along with the rewritten document to the GPT model in a single batch, enabling simultaneous evaluation. This approach offers two main advantages:
+
+**1.** With full keypoint context, the model makes more accurate judgments (validated against human annotation or more expensive models).
+
+**2.** It significantly improves the efficiency of keypoint threshold evaluation during the RL phase, reducing overall cost.
+
+### new keypoint prompt:
+
+```text
+def create_batch_prompt_judge(simplified_key_points: list, answer: str) -> str:
+    """
+    Creates a prompt for an LLM to judge ALL key points against a report in a single call.
+    The LLM is instructed to return a JSON object mapping point_number to its judgment.
+
+    Args:
+        simplified_key_points: A pre-processed list of dictionaries, 
+                               each containing 'point_number' and 'point_content'.
+        answer: The full report text to judge against.
+
+    Returns:
+        A formatted prompt string for the LLM.
+    """
+    key_points_json_str = json.dumps(simplified_key_points, indent=4, ensure_ascii=False)
+
+    return f"""You are given a **JSON array of Key Points** and a **Report**.
+
+For **each** Key Point in the JSON array, your job is to determine whether the Report:
+- **Supported** the Key Point: means the Report contains information that supports the Key Point.
+- **Omitted** the Key Point: means the Report does not mention or cover the Key Point.
+- **Contradicted** the Key Point: means the Report says something that disagrees with or negates the Key Point.
+
+Carefully read each Key Point and the Report.
+
+Return your answer as a **single JSON object**. The keys of this object must be the `point_number` from the input Key Points, converted to a string. The value for each key must be another JSON object with two fields:
+- "label": One of "Supported", "Omitted", or "Contradicted".
+- "justification": A brief explanation for your label.
+
+For example, your response should look like this:
+{{
+  "1": {{
+    "label": "Supported",
+    "justification": "The report's first section directly defines this term."
+  }},
+  "2": {{
+    "label": "Omitted",
+    "justification": "The report discusses data misuse causes but does not mention this specific aspect."
+  }}
+}}
+
+Respond **only** with the JSON object. Do not add any commentary, text, or markdown formatting like ```json.
+
+---
+
+Key Points:
+{key_points_json_str}
+
+---
+
+Report:
+{answer}
+"""
+```
+
+## Keypoint threshold for finetune and RL step
+
+### Finetuning:
+
+Used the updated, more accurate keypoint metric to filter data for the teacher model, and raised the keypoint coverage threshold from 0.7 to 0.85.
+
+### RL:
+
+Two settings were configured with keypoint coverage thresholds set to 0.8 and 0.9, respectively. For all completions with keypoint coverage below the threshold, the objective reward of the rewritten document was set to zero—resulting in a negative minimum value when subtracting the original document's objective reward.
+
+## Autorule contrast for different model and different dataset (the same color represents the similar rules)
+
+### Contrast among different RAG generators (all using Researchy Questions)
+
+### Contrast between GEOBench and Researchy Questions (all using gemini-2.5-flash-lite)
+
+
+## Experienment Results
+
+### Researchy Questions
+
+### GEOBench
+
+### Ablation Studies for Researchy Questions
+
+**finetune:**
+
+**RL:**
+
 
 ### One novel metric designed for Researchy Question dataset:
 
