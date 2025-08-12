@@ -1,4 +1,4 @@
-# Seventh week: keypoint metrics rewritten & add GEO-Bench dataset & use autorule for GPT, qwen and Claude & add keypoint threshold to finetune and RL.
+# Eighth week: Autorule merge deep dug & Design LLM adjust before finetune & Test RL, finetune for new framework & Draw flowchart for merge process and whole structure till now.
 
 ## API choice
 
@@ -9,7 +9,7 @@
 
 ## General Abstrct:
 
-**1.** Refactored the keypoint-related components (currently still using GPT-4o-mini) to enable batch evaluation of keypoint coverage, improving the accuracy of the new keypoint function. This also ensures it can be efficiently used as a threshold during the RL phase without incurring excessive time or cost.
+**1.** I completely rewrote the merge method in Autorule. The “reason” step had already been designed for RAG rather than RLHF, so the current Autorule—while still keeping the three-step structure (reason, extract, merge)—is now a fully new version tailored for RAG. After the rewrite, using Autorule alone as the prompt raised the GEO score from 0.33 to 0.39.
 
 **2.** Finalized two datasets: in addition to the existing research-oriented questions, the GEO-Bench dataset (a composite of nine datasets from the GEO paper) was added. Experiments involving AutoRule, Gemini prompt augmentation, and keypoint coverage have been completed on GEO-Bench. Currently, neither dataset includes ground truth labels, but a new dataset with ground truth is planned.
 
