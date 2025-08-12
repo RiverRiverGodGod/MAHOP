@@ -5,6 +5,7 @@
 - **Backbone**: Qwen3-1.7B, Qwen2.5-7B， gemini-2.5-flash-lite-preview
 - **Finetune Structure**: LLaMA Factory, Lora
 - **RL Structure**: open-r1, GRPO
+- **RAG Generation API**: gpt-4o-mini, gemini-2.5-flash-lite-preview, claude-3-haiku-20240307
 
 ## General Abstrct:
 
