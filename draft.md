@@ -49,11 +49,154 @@ Currently, we are running six experiment settings: **APIs:** Gemini, Claude, GPT
 
 Finetuning and RL are performed only on Gemini + Researchy Questions, and the RL-trained Qwen-1.7B model is then transferred to other settings for testing. We can discuss in the meeting whether this setup has potential issues or needs adjustments.
 
-### RAG Score Calculation
+### RAG score calculation
 
 I reviewed the DeepResearchGym evaluation keypoints and found that only 17 overlap with the query IDs in our test set. In the original DeepResearchGym, keypoint coverage for each query is calculated by aggregating all keypoints from its reference documents before computing coverage. However, their setup works because most of the top 1000 queries they use have complete reference document content retrievable from ClueWeb.
 
 In contrast, our test dataset contains many reference documents for which complete content cannot be retrieved. Therefore, directly applying their aggregation approach may not be appropriate. My idea is to instead compute keypoint coverage per document for each query, then take a click rate–weighted sum across documents.
+
+## New Autorule Merge:
+
+### Merge process flowchart
+
+
+
+### Merge related prompt
+
+```text
+def get_rule_merging_prompt(rules_list: List[str]) -> str:
+    rules_text = "\n".join(f"- {rule}" for rule in rules_list)
+    return f"""
+[Persona]
+You are an expert in Information Retrieval and Knowledge Management, specializing in defining principles for high-quality RAG source documents.
+
+[Task]
+Consolidate the given list of rules into a set of core principles. Merge semantically similar rules, eliminate duplicates, and rephrase for clarity.
+
+[Criteria for a Good Merged Rule]
+1.  **Atomic**: Expresses a single, distinct idea.
+2.  **Actionable**: Provides a clear, evaluatable instruction.
+3.  **Unambiguous**: Uses simple, direct language.
+
+[Example of what to do]
+- Original Rules: ["The document must be short.", "Keep text concise."]
+- Good Merged Rule: ["The document should be concise, preferring shorter sentences and paragraphs."]
+
+[Example of what to avoid (Over-merging)]
+- Original Rules: ["The text needs to be factual.", "The text should provide multiple viewpoints."]
+- Bad Merged Rule: ["The text must be factual and provide multiple viewpoints."] (These are two distinct ideas and should be separate rules).
+
+[Instruction on Output Format]
+Return the merged list as a single, valid JSON array of strings. Do not use ```json``` or add explanations.
+
+[Original Rules]
+{rules_text}
+
+[Merged Rules JSON]
+"""
+```
+
+```text
+def get_contradiction_finding_prompt(rules_list: List[str]) -> str:
+    rules_text = "\n".join(f"- {rule}" for rule in rules_list)
+    return f"""
+[Task]
+Analyze the following list of rules and identify pairs of rules that are directly contradictory or represent opposing principles. For example, "The document must be brief" contradicts "The document must be exhaustive".
+
+Return the results as a JSON array of pairs. Each pair should be an array of two strings. If no contradictions are found, return an empty array [].
+
+[Instruction on Output Format]
+Your response must be a single, valid JSON array of arrays. Do not use ```json``` or add explanations.
+
+[Rules to Analyze]
+{rules_text}
+
+[Contradictory Pairs JSON]
+"""
+```
+
+### Contrastive results for new autorule
+
+
+
+## LLM as Agent to Adjust Content before Finetune:
+
+```text
+CLEANING_SYSTEM_PROMPT = """
+You are a highly specialized text formatting bot. Your ONLY job is to extract the core message from a given text and present it in a strict format.
+
+Follow these rules STRICTLY:
+1.  You will be given a text that might contain introductory phrases like "Here is the rewritten source:", "regenerate source:", or other conversational text.
+2.  Your task is to IGNORE and REMOVE all such introductory phrases.
+3.  You must extract ONLY the actual rewritten content that comes after the introduction.
+4.  You MUST preserve the extracted content VERBATIM. Do not change any words, punctuation, or line breaks within the original content.
+5.  Your entire output MUST start with the exact string "**Rewritten Source: **" (including the two asterisks, the space, and the colon).
+6.  There should be NO text, NO explanation, and NO newlines before or after your formatted output. Your response must be ONLY the required output and nothing else.
+"""
+
+def clean_rewritten_text_with_gemini(text_to_clean: str) -> str:
+    user_prompt = f"""
+Here are examples of how to perform your task.
+
+--- Example 1 ---
+Input Text:
+"Of course! Here is the rewritten source:
+
+This is the first sentence.
+This is the second sentence."
+
+Your Output:
+"**Rewritten Source: **This is the first sentence.
+This is the second sentence."
+---
+
+--- Example 2 ---
+Input Text:
+"regenerate source: This version is more concise and impactful."
+
+Your Output:
+"**Rewritten Source: **This version is more concise and impactful."
+---
+
+--- Example 3 ---
+Input Text:
+"**Rewritten Source**
+
+Here is the final text."
+
+Your Output:
+"**Rewritten Source: **Here is the final text."
+---
+
+Now, perform the task on the following text. Remember to follow all the rules exactly.
+
+Input Text:
+"{text_to_clean}"
+
+Your Output:
+"""
+
+    print("--- Calling Gemini for cleaning task ---")
+    cleaned_text = call_gemini(
+        user_prompt=user_prompt.strip(),
+        system_prompt=CLEANING_SYSTEM_PROMPT,
+        temperature=0.5  
+    )
+
+    return cleaned_text.strip()
+```
+
+## Experiment Results:
+
+### Main result:
+
+
+
+### Ablation Study:
+
+
+
+## Whole Process Flowchart:
 
 
 
