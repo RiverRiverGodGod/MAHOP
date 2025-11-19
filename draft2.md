@@ -44,7 +44,7 @@
 | GEO-Bench     |       0.5204     |      0.3021     |   0.0816  |   1.821   |    0.0004    |    2.726    |    1.200   |
 | Researchy GEO |     0.6720       |     0.3350      |   0.1230  |   2.504   |    0.0005    |     3.635   |   1.500    |
 
-AutoGEO_API for Reference: 1.5$ for RQ
+One thing we need to notice: rule extraction is not only for AutoGEO_Mini, but also for AutoGEO_API.
 
 
 # Rule Detailed Analysis
@@ -459,8 +459,21 @@ AutoGEO_API for Reference: 1.5$ for RQ
 
 ## GEO and GEU Score for ALL Documents Rewritten (AutoGEO_API and AutoGEO_Mini) vs Valinna and One Document Rewritten (RQ)
 
-
+| Method                                   | Word ↑ | Pos ↑  | Overall ↑ | KPC ↓  | KPR ↑   | Precision ↑ | Recall ↑ | Clarity ↑ | Insight ↑ |
+|---------------------------------|--------|--------|-----------|--------|---------|-------------|----------|-----------|-----------|
+| Vanilla                                  | 20.11  | 20.13  | 20.18     | 0.27   | 40.33   | 96.05       | 99.22    | 60.10     | 51.07     |
+| AutoGEO_API                              | **42.87** | **43.53** | **43.76** | **0.24** | 42.40   | 97.02       | 99.17    | 61.97     | 53.79     |
+| AutoGEO_Mini                             | 37.50  | 38.37  | 38.53     | 0.34   | 40.33   | 96.89       | **99.45** | 61.48     | 52.67     |
+| AutoGEO_API (All rewritten)    | 19.34  | 19.34  | 19.23     | 0.32   | **45.76** | **98.97**   | 99.33    | **64.15** | **59.38** |
+| AutoGEO_Mini (All rewritten)   | 19.64  | 19.57  | 19.65     | 0.32   | 43.40   | 98.17       | 99.21    | 61.45     | 57.39     |
 
 ## GEO and GEU Score for 3 Different Ablation Study (Reasoner(Directly extract), Merger(Random Chosen) and Filter, Extractor can not be removed (Since the length of Explanation is very long, which is impossible for Merger to merge them)) Compared with Original AutoGEO_API (RQ)
 
+| Method                         | Word ↑ | Pos ↑  | Overall ↑ | KPC ↓  | KPR ↑   | Precision ↑ | Recall ↑ | Clarity ↑ | Insight ↑ |
+|--------------------------------|--------|--------|-----------|--------|---------|-------------|----------|-----------|-----------|
+| Vanilla                        | 20.11  | 20.13  | 20.18     | 0.27   | 40.33   | 96.05       | 99.22    | 60.10     | 51.07     |
+| AutoGEO_API                    | **42.87**  | **43.53** | **43.76** | **0.24** | **42.40** | 97.02       | **99.17**    | **61.97**     | 53.79     |
+| AutoGEO_API (no Explainer)    | 42.72 | 42.63  | 42.91     | 0.27   | 42.16   | 97.90       | 99.11 | 61.48 | **54.89** |
+| AutoGEO_API (no Merger)       | 40.71  | 40.89  | 41.28     | 0.28   | 41.95   | **97.98**   | 99.09    | 61.89     | 54.70     |
+| AutoGEO_API (no Filter)       |   42.85   |   43.35   |    43.71     |    0.31    |   42.28      |      97.61       |    98.99      |     61.55      |     54.21      |
 
