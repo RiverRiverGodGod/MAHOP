@@ -1,3 +1,9 @@
+| Dataset | \# Training Sample | Candidate Document |  Rule Extraction | \# Test Sample | AutoGEO_API | AutoGEO_Mini |
+|--------------:|------------:|----------:|----------:|-------:|-------:|------:|
+| E-commerce   | 1667        | 0.1318    | 1.428  | 416 | 0.711 | 0.0053 |
+| GEO-Bench    | 8000        | 0.5204    | 2.726  | 1000 | 1.512 | 0.0122 |
+| Researchy GEO| 10000       | 0.6720    | 3.635  | 1000 | 1.498 | 0.0106 |
+
 #### Document 1
 
 Central focus
